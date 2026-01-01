@@ -21,6 +21,103 @@
             zoom: 0.8;
             transform-origin: top left;
         }
+
+        /* Login Screen Styles */
+        #loginScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        #loginScreen.hidden {
+            display: none;
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .login-container h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+
+        .login-container p {
+            color: #6b7280;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .login-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .login-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+        }
+
+        .login-error {
+            color: #ef4444;
+            font-size: 14px;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        #mainApp {
+            display: none !important;
+        }
+
+        #mainApp.authenticated {
+            display: block !important;
+        }
+
+        #loginScreen.hidden {
+            display: none !important;
+        }
         
         @media (min-width: 1400px) {
             body {
@@ -1834,6 +1931,19 @@
     </style>
 </head>
 <body>
+    <!-- Login Screen -->
+    <div id="loginScreen">
+        <div class="login-container">
+            <h2>🔒 Secure Access</h2>
+            <p>Please enter the password to access the analyzer</p>
+            <input type="password" id="passwordInput" class="login-input" placeholder="Enter password" autocomplete="off">
+            <button id="loginButton" class="login-button">Login</button>
+            <div id="loginError" class="login-error"></div>
+        </div>
+    </div>
+
+    <!-- Main Application (hidden until authenticated) -->
+    <div id="mainApp">
     <!-- Notification container -->
     <div id="notification" class="notification">
         <div class="notification-content">
@@ -2180,6 +2290,136 @@
     </div>
 
     <script>
+        // ============================================
+        // PASSWORD PROTECTION - MUST RUN FIRST
+        // ============================================
+        (function() {
+            'use strict';
+            
+            // IMPORTANT: Change this password hash to your desired password!
+            // Default password is "password" - CHANGE THIS IMMEDIATELY!
+            const CORRECT_PASSWORD_HASH = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'; // SHA-256 hash of "password"
+            
+            function hashPassword(password) {
+                return crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
+                    .then(hashBuffer => {
+                        const hashArray = Array.from(new Uint8Array(hashBuffer));
+                        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    });
+            }
+
+            function checkAuth() {
+                const authToken = sessionStorage.getItem('analyzer_auth');
+                const authTime = sessionStorage.getItem('analyzer_auth_time');
+                const now = Date.now();
+                
+                if (authToken === 'authenticated' && authTime && (now - parseInt(authTime)) < 24 * 60 * 60 * 1000) {
+                    return true;
+                }
+                return false;
+            }
+
+            function setAuth() {
+                sessionStorage.setItem('analyzer_auth', 'authenticated');
+                sessionStorage.setItem('analyzer_auth_time', Date.now().toString());
+            }
+
+            function showApp() {
+                const loginScreen = document.getElementById('loginScreen');
+                const mainApp = document.getElementById('mainApp');
+                if (loginScreen) loginScreen.style.display = 'none';
+                if (mainApp) mainApp.style.display = 'block';
+            }
+
+            function hideApp() {
+                const loginScreen = document.getElementById('loginScreen');
+                const mainApp = document.getElementById('mainApp');
+                if (loginScreen) loginScreen.style.display = 'flex';
+                if (mainApp) mainApp.style.display = 'none';
+            }
+
+            // Initialize on DOM ready
+            function initAuth() {
+                // Hide app by default
+                hideApp();
+                
+                if (checkAuth()) {
+                    showApp();
+                } else {
+                    hideApp();
+                    const passwordInput = document.getElementById('passwordInput');
+                    if (passwordInput) {
+                        setTimeout(() => passwordInput.focus(), 100);
+                    }
+                }
+
+                // Login button handler
+                const loginButton = document.getElementById('loginButton');
+                if (loginButton) {
+                    loginButton.addEventListener('click', async function() {
+                        const passwordInput = document.getElementById('passwordInput');
+                        const errorDiv = document.getElementById('loginError');
+                        const password = passwordInput ? passwordInput.value : '';
+                        
+                        if (errorDiv) errorDiv.textContent = '';
+                        
+                        if (!password) {
+                            if (errorDiv) errorDiv.textContent = 'Please enter a password';
+                            return;
+                        }
+
+                        this.textContent = 'Checking...';
+                        this.disabled = true;
+
+                        try {
+                            const hash = await hashPassword(password);
+                            if (hash === CORRECT_PASSWORD_HASH) {
+                                setAuth();
+                                showApp();
+                                location.reload();
+                            } else {
+                                if (errorDiv) errorDiv.textContent = 'Incorrect password. Please try again.';
+                                if (passwordInput) {
+                                    passwordInput.value = '';
+                                    passwordInput.focus();
+                                }
+                            }
+                        } catch (error) {
+                            if (errorDiv) errorDiv.textContent = 'Error during authentication. Please try again.';
+                            console.error('Auth error:', error);
+                        } finally {
+                            this.textContent = 'Login';
+                            this.disabled = false;
+                        }
+                    });
+                }
+
+                // Enter key handler
+                const passwordInput = document.getElementById('passwordInput');
+                if (passwordInput) {
+                    passwordInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            const loginButton = document.getElementById('loginButton');
+                            if (loginButton) loginButton.click();
+                        }
+                    });
+                }
+            }
+
+            // Run immediately
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initAuth);
+            } else {
+                initAuth();
+            }
+            
+            // Make checkAuth available globally
+            window.checkAuth = checkAuth;
+        })();
+        // ============================================
+        // END PASSWORD PROTECTION
+        // ============================================
+
         // Load saved state from localStorage
         function loadSavedState() {
             try {
@@ -7260,6 +7500,12 @@
 
         // Initialize
         (async function init() {
+            // Don't initialize if not authenticated
+            if (!checkAuth()) {
+                console.log('Not authenticated, skipping initialization');
+                return;
+            }
+            
             try {
                 console.log('Initializing Multi-Product Analyzer...');
                 
@@ -7356,7 +7602,14 @@
                 showEmptyState(`Initialization failed: ${error.message}`);
             }
         })();
+
+        // Re-initialize app when authenticated
+        window.addEventListener('appAuthenticated', function() {
+            // Reload the page to re-run the init function
+            location.reload();
+        });
     </script>
+    </div> <!-- End of mainApp -->
 </body>
 </html>
 

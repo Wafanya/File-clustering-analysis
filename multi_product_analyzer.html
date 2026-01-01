@@ -108,11 +108,15 @@
         }
 
         #mainApp {
-            display: none;
+            display: none !important;
         }
 
         #mainApp.authenticated {
-            display: block;
+            display: block !important;
+        }
+
+        #loginScreen.hidden {
+            display: none !important;
         }
         
         @media (min-width: 1400px) {
@@ -2286,6 +2290,136 @@
     </div>
 
     <script>
+        // ============================================
+        // PASSWORD PROTECTION - MUST RUN FIRST
+        // ============================================
+        (function() {
+            'use strict';
+            
+            // IMPORTANT: Change this password hash to your desired password!
+            // Default password is "password" - CHANGE THIS IMMEDIATELY!
+            const CORRECT_PASSWORD_HASH = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'; // SHA-256 hash of "password"
+            
+            function hashPassword(password) {
+                return crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
+                    .then(hashBuffer => {
+                        const hashArray = Array.from(new Uint8Array(hashBuffer));
+                        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    });
+            }
+
+            function checkAuth() {
+                const authToken = sessionStorage.getItem('analyzer_auth');
+                const authTime = sessionStorage.getItem('analyzer_auth_time');
+                const now = Date.now();
+                
+                if (authToken === 'authenticated' && authTime && (now - parseInt(authTime)) < 24 * 60 * 60 * 1000) {
+                    return true;
+                }
+                return false;
+            }
+
+            function setAuth() {
+                sessionStorage.setItem('analyzer_auth', 'authenticated');
+                sessionStorage.setItem('analyzer_auth_time', Date.now().toString());
+            }
+
+            function showApp() {
+                const loginScreen = document.getElementById('loginScreen');
+                const mainApp = document.getElementById('mainApp');
+                if (loginScreen) loginScreen.style.display = 'none';
+                if (mainApp) mainApp.style.display = 'block';
+            }
+
+            function hideApp() {
+                const loginScreen = document.getElementById('loginScreen');
+                const mainApp = document.getElementById('mainApp');
+                if (loginScreen) loginScreen.style.display = 'flex';
+                if (mainApp) mainApp.style.display = 'none';
+            }
+
+            // Initialize on DOM ready
+            function initAuth() {
+                // Hide app by default
+                hideApp();
+                
+                if (checkAuth()) {
+                    showApp();
+                } else {
+                    hideApp();
+                    const passwordInput = document.getElementById('passwordInput');
+                    if (passwordInput) {
+                        setTimeout(() => passwordInput.focus(), 100);
+                    }
+                }
+
+                // Login button handler
+                const loginButton = document.getElementById('loginButton');
+                if (loginButton) {
+                    loginButton.addEventListener('click', async function() {
+                        const passwordInput = document.getElementById('passwordInput');
+                        const errorDiv = document.getElementById('loginError');
+                        const password = passwordInput ? passwordInput.value : '';
+                        
+                        if (errorDiv) errorDiv.textContent = '';
+                        
+                        if (!password) {
+                            if (errorDiv) errorDiv.textContent = 'Please enter a password';
+                            return;
+                        }
+
+                        this.textContent = 'Checking...';
+                        this.disabled = true;
+
+                        try {
+                            const hash = await hashPassword(password);
+                            if (hash === CORRECT_PASSWORD_HASH) {
+                                setAuth();
+                                showApp();
+                                location.reload();
+                            } else {
+                                if (errorDiv) errorDiv.textContent = 'Incorrect password. Please try again.';
+                                if (passwordInput) {
+                                    passwordInput.value = '';
+                                    passwordInput.focus();
+                                }
+                            }
+                        } catch (error) {
+                            if (errorDiv) errorDiv.textContent = 'Error during authentication. Please try again.';
+                            console.error('Auth error:', error);
+                        } finally {
+                            this.textContent = 'Login';
+                            this.disabled = false;
+                        }
+                    });
+                }
+
+                // Enter key handler
+                const passwordInput = document.getElementById('passwordInput');
+                if (passwordInput) {
+                    passwordInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            const loginButton = document.getElementById('loginButton');
+                            if (loginButton) loginButton.click();
+                        }
+                    });
+                }
+            }
+
+            // Run immediately
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initAuth);
+            } else {
+                initAuth();
+            }
+            
+            // Make checkAuth available globally
+            window.checkAuth = checkAuth;
+        })();
+        // ============================================
+        // END PASSWORD PROTECTION
+        // ============================================
+
         // Load saved state from localStorage
         function loadSavedState() {
             try {
@@ -7364,117 +7498,11 @@
             });
         });
 
-        // Password protection
-        // IMPORTANT: Change this password hash to your desired password!
-        // Default password is "password" - CHANGE THIS IMMEDIATELY!
-        // 
-        // To generate a new password hash:
-        // 1. Open browser console (F12)
-        // 2. Run: await crypto.subtle.digest('SHA-256', new TextEncoder().encode('YOUR_PASSWORD')).then(h => Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join(''))
-        // 3. Copy the result and replace the hash below
-        // 
-        // Or use online tool: https://emn178.github.io/online-tools/sha256.html
-        const CORRECT_PASSWORD_HASH = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'; // SHA-256 hash of "password"
-        
-        function hashPassword(password) {
-            // Simple SHA-256 hash (async)
-            return crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
-                .then(hashBuffer => {
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                });
-        }
-
-        function checkAuth() {
-            const authToken = sessionStorage.getItem('analyzer_auth');
-            const authTime = sessionStorage.getItem('analyzer_auth_time');
-            const now = Date.now();
-            
-            // Check if authenticated and session is valid (24 hours)
-            if (authToken === 'authenticated' && authTime && (now - parseInt(authTime)) < 24 * 60 * 60 * 1000) {
-                return true;
-            }
-            return false;
-        }
-
-        function setAuth() {
-            sessionStorage.setItem('analyzer_auth', 'authenticated');
-            sessionStorage.setItem('analyzer_auth_time', Date.now().toString());
-        }
-
-        function showApp() {
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('mainApp').classList.add('authenticated');
-        }
-
-        function hideApp() {
-            document.getElementById('loginScreen').classList.remove('hidden');
-            document.getElementById('mainApp').classList.remove('authenticated');
-        }
-
-        // Check authentication on page load
-        if (checkAuth()) {
-            showApp();
-        } else {
-            hideApp();
-        }
-
-        // Login button handler
-        document.getElementById('loginButton').addEventListener('click', async function() {
-            const passwordInput = document.getElementById('passwordInput');
-            const errorDiv = document.getElementById('loginError');
-            const password = passwordInput.value;
-            
-            errorDiv.textContent = '';
-            
-            if (!password) {
-                errorDiv.textContent = 'Please enter a password';
-                return;
-            }
-
-            // Show loading state
-            this.textContent = 'Checking...';
-            this.disabled = true;
-
-            try {
-                const hash = await hashPassword(password);
-                if (hash === CORRECT_PASSWORD_HASH) {
-                    setAuth();
-                    showApp();
-                    // Trigger app initialization by reloading
-                    location.reload();
-                } else {
-                    errorDiv.textContent = 'Incorrect password. Please try again.';
-                    passwordInput.value = '';
-                    passwordInput.focus();
-                }
-            } catch (error) {
-                errorDiv.textContent = 'Error during authentication. Please try again.';
-                console.error('Auth error:', error);
-            } finally {
-                this.textContent = 'Login';
-                this.disabled = false;
-            }
-        });
-
-        // Allow Enter key to submit
-        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('loginButton').click();
-            }
-        });
-
-        // Focus password input on load
-        window.addEventListener('load', function() {
-            if (!checkAuth()) {
-                document.getElementById('passwordInput').focus();
-            }
-        });
-
         // Initialize
         (async function init() {
             // Don't initialize if not authenticated
             if (!checkAuth()) {
+                console.log('Not authenticated, skipping initialization');
                 return;
             }
             
