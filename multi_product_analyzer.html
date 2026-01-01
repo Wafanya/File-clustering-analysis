@@ -2298,7 +2298,7 @@
             
             // IMPORTANT: Change this password hash to your desired password!
             // Default password is "password" - CHANGE THIS IMMEDIATELY!
-            const CORRECT_PASSWORD_HASH = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'; // SHA-256 hash of "password"
+            const CORRECT_PASSWORD_HASH = 'cc5be6457d2028bb0537ce3cb1d61387246ce31913b529f5643bb3a482c27235'; // SHA-256 hash
             
             function hashPassword(password) {
                 return crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
