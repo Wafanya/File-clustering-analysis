@@ -21,6 +21,99 @@
             zoom: 0.8;
             transform-origin: top left;
         }
+
+        /* Login Screen Styles */
+        #loginScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        #loginScreen.hidden {
+            display: none;
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .login-container h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+
+        .login-container p {
+            color: #6b7280;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .login-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .login-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+        }
+
+        .login-error {
+            color: #ef4444;
+            font-size: 14px;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        #mainApp {
+            display: none;
+        }
+
+        #mainApp.authenticated {
+            display: block;
+        }
         
         @media (min-width: 1400px) {
             body {
@@ -1834,6 +1927,19 @@
     </style>
 </head>
 <body>
+    <!-- Login Screen -->
+    <div id="loginScreen">
+        <div class="login-container">
+            <h2>🔒 Secure Access</h2>
+            <p>Please enter the password to access the analyzer</p>
+            <input type="password" id="passwordInput" class="login-input" placeholder="Enter password" autocomplete="off">
+            <button id="loginButton" class="login-button">Login</button>
+            <div id="loginError" class="login-error"></div>
+        </div>
+    </div>
+
+    <!-- Main Application (hidden until authenticated) -->
+    <div id="mainApp">
     <!-- Notification container -->
     <div id="notification" class="notification">
         <div class="notification-content">
@@ -7258,8 +7364,120 @@
             });
         });
 
+        // Password protection
+        // IMPORTANT: Change this password hash to your desired password!
+        // Default password is "password" - CHANGE THIS IMMEDIATELY!
+        // 
+        // To generate a new password hash:
+        // 1. Open browser console (F12)
+        // 2. Run: await crypto.subtle.digest('SHA-256', new TextEncoder().encode('YOUR_PASSWORD')).then(h => Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join(''))
+        // 3. Copy the result and replace the hash below
+        // 
+        // Or use online tool: https://emn178.github.io/online-tools/sha256.html
+        const CORRECT_PASSWORD_HASH = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'; // SHA-256 hash of "password"
+        
+        function hashPassword(password) {
+            // Simple SHA-256 hash (async)
+            return crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
+                .then(hashBuffer => {
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                });
+        }
+
+        function checkAuth() {
+            const authToken = sessionStorage.getItem('analyzer_auth');
+            const authTime = sessionStorage.getItem('analyzer_auth_time');
+            const now = Date.now();
+            
+            // Check if authenticated and session is valid (24 hours)
+            if (authToken === 'authenticated' && authTime && (now - parseInt(authTime)) < 24 * 60 * 60 * 1000) {
+                return true;
+            }
+            return false;
+        }
+
+        function setAuth() {
+            sessionStorage.setItem('analyzer_auth', 'authenticated');
+            sessionStorage.setItem('analyzer_auth_time', Date.now().toString());
+        }
+
+        function showApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.add('authenticated');
+        }
+
+        function hideApp() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.remove('authenticated');
+        }
+
+        // Check authentication on page load
+        if (checkAuth()) {
+            showApp();
+        } else {
+            hideApp();
+        }
+
+        // Login button handler
+        document.getElementById('loginButton').addEventListener('click', async function() {
+            const passwordInput = document.getElementById('passwordInput');
+            const errorDiv = document.getElementById('loginError');
+            const password = passwordInput.value;
+            
+            errorDiv.textContent = '';
+            
+            if (!password) {
+                errorDiv.textContent = 'Please enter a password';
+                return;
+            }
+
+            // Show loading state
+            this.textContent = 'Checking...';
+            this.disabled = true;
+
+            try {
+                const hash = await hashPassword(password);
+                if (hash === CORRECT_PASSWORD_HASH) {
+                    setAuth();
+                    showApp();
+                    // Trigger app initialization by reloading
+                    location.reload();
+                } else {
+                    errorDiv.textContent = 'Incorrect password. Please try again.';
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error during authentication. Please try again.';
+                console.error('Auth error:', error);
+            } finally {
+                this.textContent = 'Login';
+                this.disabled = false;
+            }
+        });
+
+        // Allow Enter key to submit
+        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginButton').click();
+            }
+        });
+
+        // Focus password input on load
+        window.addEventListener('load', function() {
+            if (!checkAuth()) {
+                document.getElementById('passwordInput').focus();
+            }
+        });
+
         // Initialize
         (async function init() {
+            // Don't initialize if not authenticated
+            if (!checkAuth()) {
+                return;
+            }
+            
             try {
                 console.log('Initializing Multi-Product Analyzer...');
                 
@@ -7356,7 +7574,14 @@
                 showEmptyState(`Initialization failed: ${error.message}`);
             }
         })();
+
+        // Re-initialize app when authenticated
+        window.addEventListener('appAuthenticated', function() {
+            // Reload the page to re-run the init function
+            location.reload();
+        });
     </script>
+    </div> <!-- End of mainApp -->
 </body>
 </html>
 
