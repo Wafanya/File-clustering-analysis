@@ -2327,15 +2327,27 @@
             function showApp() {
                 const loginScreen = document.getElementById('loginScreen');
                 const mainApp = document.getElementById('mainApp');
-                if (loginScreen) loginScreen.style.display = 'none';
-                if (mainApp) mainApp.style.display = 'block';
+                if (loginScreen) {
+                    loginScreen.style.display = 'none';
+                    loginScreen.classList.add('hidden');
+                }
+                if (mainApp) {
+                    mainApp.style.display = 'block';
+                    mainApp.classList.add('authenticated');
+                }
             }
 
             function hideApp() {
                 const loginScreen = document.getElementById('loginScreen');
                 const mainApp = document.getElementById('mainApp');
-                if (loginScreen) loginScreen.style.display = 'flex';
-                if (mainApp) mainApp.style.display = 'none';
+                if (loginScreen) {
+                    loginScreen.style.display = 'flex';
+                    loginScreen.classList.remove('hidden');
+                }
+                if (mainApp) {
+                    mainApp.style.display = 'none';
+                    mainApp.classList.remove('authenticated');
+                }
             }
 
             // Initialize on DOM ready
@@ -7500,10 +7512,37 @@
 
         // Initialize
         (async function init() {
+            // Wait a bit to ensure DOM is ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             // Don't initialize if not authenticated
-            if (!checkAuth()) {
+            const isAuthenticated = window.checkAuth ? window.checkAuth() : false;
+            if (!isAuthenticated) {
                 console.log('Not authenticated, skipping initialization');
+                // Make sure app is hidden and login screen is visible
+                const mainApp = document.getElementById('mainApp');
+                const loginScreen = document.getElementById('loginScreen');
+                if (mainApp) {
+                    mainApp.style.display = 'none';
+                    mainApp.classList.remove('authenticated');
+                }
+                if (loginScreen) {
+                    loginScreen.style.display = 'flex';
+                    loginScreen.classList.remove('hidden');
+                }
                 return;
+            }
+            
+            // Make sure app is visible and login screen is hidden
+            const mainApp = document.getElementById('mainApp');
+            const loginScreen = document.getElementById('loginScreen');
+            if (mainApp) {
+                mainApp.style.display = 'block';
+                mainApp.classList.add('authenticated');
+            }
+            if (loginScreen) {
+                loginScreen.style.display = 'none';
+                loginScreen.classList.add('hidden');
             }
             
             try {
