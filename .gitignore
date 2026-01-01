@@ -1,0 +1,50 @@
+# Personal files - DO NOT COMMIT
+Documents/
+FORMA/
+IASA/
+Photo/
+Side projects/
+Zoom/
+Медичні документи/
+ТПР/
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.mov
+*.mp4
+*.m4a
+*.png
+*.jpg
+*.jpeg
+*.heic
+*.jks
+*.pages
+*.rtf
+*.zip
+*.php
+*.ipynb
+*.ipynb_checkpoints
+
+# System files
+.DS_Store
+.localized
+__pycache__/
+*.pyc
+
+# Only include these specific files for the analyzer
+!multi_product_analyzer.html
+!index.html
+!README.md
+!guru_merged_full.csv
+!leader_merged_full.csv
+!best_merged_full.csv
+!pdfguru_user_mappings.json
+!pdfleader_user_mappings.json
+!thebestpdf_user_mappings.json
+!products_index.json
+!pdfguru_analysis.json
+!pdfleader_analysis.json
+!thebestpdf_analysis.json
+
