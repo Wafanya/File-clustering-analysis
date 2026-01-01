@@ -1,0 +1,21 @@
+{
+  "products": [
+    "pdfguru",
+    "pdfleader",
+    "thebestpdf"
+  ],
+  "product_info": {
+    "pdfguru": {
+      "total_records": 51331,
+      "file": "pdfguru_analysis.json"
+    },
+    "pdfleader": {
+      "total_records": 14299,
+      "file": "pdfleader_analysis.json"
+    },
+    "thebestpdf": {
+      "total_records": 22007,
+      "file": "thebestpdf_analysis.json"
+    }
+  }
+}
